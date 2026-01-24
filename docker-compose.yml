@@ -2,12 +2,11 @@ version: '3.8'
 services:
   anvil:
     image: ghcr.io/foundry-rs/foundry
-    command: anvil --host 0.0.0.0
     ports:
       - "8545:8545"
   frontend:
     build: ./frontend
     ports:
       - "3000:3000"
-    environment:
-      - REACT_APP_CONTRACT_ADDRESS=${CONTRACT_ADDRESS}
+    volumes:
+      - ./frontend:/app

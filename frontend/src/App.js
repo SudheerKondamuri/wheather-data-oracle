@@ -1,67 +1,66 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ethers } from 'ethers';
 import { ApolloClient, InMemoryCache, gql, useQuery } from '@apollo/client';
-import ABI from './WeatherOracleABI.json';
 
 const CONTRACT_ADDRESS = "0x...";
-const SUBGRAPH_URL = "https://api.thegraph.com/subgraphs/name/...";
+const ABI = [...]; // Your Contract ABI
 
 const client = new ApolloClient({
-  uri: SUBGRAPH_URL,
+  uri: 'YOUR_GRAPH_ENDPOINT',
   cache: new InMemoryCache(),
 });
 
-const GET_WEATHER_REPORTS = gql`
-  query GetReports {
+const GET_REPORTS = gql`
+  query {
     weatherReports(orderBy: timestamp, orderDirection: desc) {
-      id
-      city
-      temperature
-      description
-      timestamp
+      id city temperature description timestamp
     }
   }
 `;
 
 function App() {
   const [city, setCity] = useState("");
-  const [loading, setLoading] = useState(false);
-  const { data } = useQuery(GET_WEATHER_REPORTS, { client, pollInterval: 5000 });
+  const { data, loading: queryLoading } = useQuery(GET_REPORTS, { client, pollInterval: 5000 });
 
-  async function handleRequest() {
-    if (!window.ethereum) return alert("Install Metamask");
-    setLoading(true);
-    try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-      
-      const tx = await contract.requestWeather(city);
-      await tx.wait();
-      alert("Request Sent to Chainlink!");
-    } catch (err) {
-      console.error(err);
-    }
-    setLoading(false);
+  async function requestWeather() {
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    const signer = provider.getSigner();
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    
+    const tx = await contract.requestWeather(city);
+    await tx.wait();
+    alert("Request Transaction Confirmed!");
   }
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Weather Oracle Dashboard</h1>
-      <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Enter City" />
-      <button onClick={handleRequest} disabled={loading}>
-        {loading ? "Processing..." : "Request Weather"}
-      </button>
+    <div style={{ padding: '40px', fontFamily: 'sans-serif' }}>
+      <h1>Decentralized Weather Oracle</h1>
+      <input 
+        type="text" 
+        placeholder="City Name" 
+        onChange={(e) => setCity(e.target.value)} 
+      />
+      <button onClick={requestWeather}>Request Weather Update</button>
 
-      <h2>Historical Reports (from Subgraph)</h2>
-      <ul>
-        {data?.weatherReports.map(report => (
-          <li key={report.id}>
-            {report.city}: {report.temperature}°C - {report.description} 
-            ({new Date(report.timestamp * 1000).toLocaleString()})
-          </li>
-        ))}
-      </ul>
+      <hr />
+      <h2>Historical Weather Data (Subgraph)</h2>
+      {queryLoading ? <p>Loading reports...</p> : (
+        <table>
+          <thead>
+            <tr><th>City</th><th>Temp</th><th>Time</th></tr>
+          </thead>
+          <tbody>
+            {data?.weatherReports.map(r => (
+              <tr key={r.id}>
+                <td>{r.city}</td>
+                <td>{r.temperature / 100}°C</td>
+                <td>{new Date(r.timestamp * 1000).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

@@ -1,8 +1,24 @@
-type WeatherReport @entity(immutable: true) {
-  id: Bytes! # requestId
-  city: String!
-  temperature: Int!
-  description: String!
-  timestamp: BigInt!
-  requester: Bytes!
-}
+specVersion: 1.0.0
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: WeatherOracle
+    network: sepolia
+    source:
+      address: "YOUR_DEPLOYED_CONTRACT_ADDRESS"
+      abi: WeatherOracle
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - WeatherReport
+      abis:
+        - name: WeatherOracle
+          file: ../artifacts/contracts/WeatherOracle.sol/WeatherOracle.json
+      eventHandlers:
+        - event: WeatherReported(indexed bytes32,string,int256,string,uint256)
+          handler: handleWeatherReported
+      file: ./src/mappings/weather-oracle.ts

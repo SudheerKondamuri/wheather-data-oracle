@@ -8,7 +8,7 @@ export function handleWeatherReported(event: WeatherReportedEvent): void {
   entity.temperature = event.params.temperature.toI32()
   entity.description = event.params.description
   entity.timestamp = event.params.timestamp
-  entity.requester = event.transaction.from // Or use a saved requester mapping
+  entity.requester = event.transaction.from
 
   entity.save()
 }
