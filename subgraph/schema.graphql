@@ -1,0 +1,8 @@
+type WeatherReport @entity(immutable: true) {
+  id: Bytes! # requestId
+  city: String!
+  temperature: Int!
+  description: String!
+  timestamp: BigInt!
+  requester: Bytes!
+}
