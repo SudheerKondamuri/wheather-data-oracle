@@ -2,7 +2,12 @@ import { WeatherReported as WeatherReportedEvent } from "../generated/WeatherOra
 import { WeatherReport } from "../generated/schema"
 
 export function handleWeatherReported(event: WeatherReportedEvent): void {
-  let entity = new WeatherReport(event.params.requestId)
+  // Check if entity already exists to handle idempotency requirement
+  let entity = WeatherReport.load(event.params.requestId)
+  
+  if (entity == null) {
+    entity = new WeatherReport(event.params.requestId)
+  }
   
   entity.city = event.params.city
   entity.temperature = event.params.temperature.toI32()
