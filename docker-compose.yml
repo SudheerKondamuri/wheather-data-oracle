@@ -1,12 +1,73 @@
 version: '3.8'
+
 services:
+  # Local Ethereum Node (Anvil from Foundry)
   anvil:
-    image: ghcr.io/foundry-rs/foundry
+    image: ghcr.io/foundry-rs/foundry:latest
+    command: anvil --host 0.0.0.0
     ports:
       - "8545:8545"
+    networks:
+      - oracle-network
+
+  # Frontend React Application
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     volumes:
-      - ./frontend:/app
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    environment:
+      - REACT_APP_CONTRACT_ADDRESS=${REACT_APP_CONTRACT_ADDRESS:-0x0000000000000000000000000000000000000000}
+      - REACT_APP_SUBGRAPH_URI=${REACT_APP_SUBGRAPH_URI:-http://localhost:8000/subgraphs/name/weather-oracle}
+      - CHOKIDAR_USEPOLLING=true
+    networks:
+      - oracle-network
+    depends_on:
+      - anvil
+
+  # Optional: The Graph Node (for local subgraph development)
+  # Uncomment and configure if you want to run a local Graph node
+  # graph-node:
+  #   image: graphprotocol/graph-node:latest
+  #   ports:
+  #     - "8000:8000"
+  #     - "8001:8001"
+  #     - "8020:8020"
+  #     - "8030:8030"
+  #     - "8040:8040"
+  #   environment:
+  #     postgres_host: postgres
+  #     postgres_user: graph-node
+  #     postgres_pass: let-me-in
+  #     postgres_db: graph-node
+  #     ipfs: 'ipfs:5001'
+  #     ethereum: 'sepolia:http://anvil:8545'
+  #   networks:
+  #     - oracle-network
+  #   depends_on:
+  #     - postgres
+  #     - ipfs
+
+  # postgres:
+  #   image: postgres:14
+  #   environment:
+  #     POSTGRES_USER: graph-node
+  #     POSTGRES_PASSWORD: let-me-in
+  #     POSTGRES_DB: graph-node
+  #   networks:
+  #     - oracle-network
+
+  # ipfs:
+  #   image: ipfs/kubo:latest
+  #   ports:
+  #     - "5001:5001"
+  #   networks:
+  #     - oracle-network
+
+networks:
+  oracle-network:
+    driver: bridge
