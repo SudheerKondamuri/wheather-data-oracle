@@ -1,10 +1,12 @@
 {
   "name": "wheather-data-oracle",
   "version": "1.0.0",
-  "description": "",
+  "description": "Decentralized Weather Oracle with Chainlink and The Graph",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "hardhat test",
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js --network sepolia"
   },
   "keywords": [],
   "author": "",
@@ -35,6 +37,7 @@
   },
   "dependencies": {
     "@chainlink/contracts": "^1.5.0",
-    "@openzeppelin/contracts": "^5.4.0"
+    "@openzeppelin/contracts": "^4.9.3",
+    "dotenv": "^16.6.1"
   }
 }

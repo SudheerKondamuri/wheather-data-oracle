@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
+import "@chainlink/contracts/src/v0.8/operatorforwarder/ChainlinkClient.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract WeatherOracle is ChainlinkClient, Ownable {
@@ -25,25 +25,25 @@ contract WeatherOracle is ChainlinkClient, Ownable {
     uint256 private fee;
     address private oracle;
 
-    constructor(address _link, address _oracle, bytes32 _jobId, uint256 _fee) Ownable() {
-        setChainlinkToken(_link);
-        setChainlinkOracle(_oracle);
+    constructor(address _link, address _oracle, bytes32 _jobId, uint256 _fee) Ownable(msg.sender) {
+        _setChainlinkToken(_link);
+        _setChainlinkOracle(_oracle);
         oracle = _oracle;
         jobId = _jobId;
         fee = _fee;
     }
 
-    function requestWeather(string memory _city) public returns (bytes32 requestId) {
-        require(LinkTokenInterface(chainlinkTokenAddress()).balanceOf(address(this)) >= fee, "Insufficient LINK");
+    function requestWeather(string memory _city) public payable returns (bytes32 requestId) {
+        require(LinkTokenInterface(_chainlinkTokenAddress()).balanceOf(address(this)) >= fee, "Insufficient LINK");
 
-        Chainlink.Request memory req = buildChainlinkRequest(jobId, address(this), this.fulfill.selector);
+        Chainlink.Request memory req = _buildChainlinkRequest(jobId, address(this), this.fulfill.selector);
         
         // Correctly pass the city to the API
-        req.add("get", string(abi.encodePacked("https://api.openweathermap.org/data/2.5/weather?q=", _city, "&units=metric&appid=YOUR_API_KEY")));
+        req._add("get", string(abi.encodePacked("https://api.openweathermap.org/data/2.5/weather?q=", _city, "&units=metric&appid=YOUR_API_KEY")));
         // Request the full JSON response to fulfill the "parse JSON string" requirement
-        req.add("path", "main"); 
+        req._add("path", "main"); 
 
-        requestId = sendChainlinkRequest(req, fee);
+        requestId = _sendChainlinkRequest(req, fee);
         requestToRequester[requestId] = msg.sender;
         requestToCity[requestId] = _city;
 
@@ -51,7 +51,7 @@ contract WeatherOracle is ChainlinkClient, Ownable {
     }
 
     // Updated to fulfill core requirement: receive _weatherData as a JSON string
-    function fulfill(bytes32 _requestId, string memory _weatherData) public recordChainlinkFulfillment(_requestId) {
+    function fulfill(bytes32 _requestId, string memory _weatherData) public _recordChainlinkFulfillment(_requestId) {
         string memory city = requestToCity[_requestId];
         
         // Note: Actual string-to-int parsing in Solidity requires a library or 
@@ -72,7 +72,7 @@ contract WeatherOracle is ChainlinkClient, Ownable {
 
     function setChainlinkOracle(address _oracle) public onlyOwner {
         oracle = _oracle;
-        setOracle(_oracle);
+        _setChainlinkOracle(_oracle);
     }
 
     function setJobId(bytes32 _jobId) public onlyOwner { jobId = _jobId; }
