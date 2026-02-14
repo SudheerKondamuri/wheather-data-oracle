@@ -36,17 +36,17 @@ function App() {
   const updateWalletInfo = useCallback(async () => {
     if (window.ethereum) {
       try {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const provider = new ethers.BrowserProvider(window.ethereum);
         const accounts = await provider.listAccounts();
         
         if (accounts.length > 0) {
-          const address = accounts[0];
+          const address = accounts[0].address;
           const balance = await provider.getBalance(address);
           const network = await provider.getNetwork();
 
           setWallet({
             address: address,
-            balance: ethers.utils.formatEther(balance),
+            balance: ethers.formatEther(balance),
             network: network.name === 'unknown' ? `Chain ID: ${network.chainId}` : network.name
           });
         }
@@ -80,11 +80,11 @@ function App() {
     setStatus("Initiating transaction...");
 
     try {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
       
       // ABI should be imported from your compiled artifacts
-      const abi = ["function requestWeather(string _city) public returns (bytes32)"];
+      const abi = ["function requestWeather(string _city) public payable returns (bytes32)"];
       const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
 
       const tx = await contract.requestWeather(city);
@@ -102,6 +102,19 @@ function App() {
     }
   };
 
+  const connectWallet = async () => {
+    if (window.ethereum) {
+      try {
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        updateWalletInfo();
+      } catch (error) {
+        console.error("Error connecting wallet:", error);
+      }
+    } else {
+      alert("Please install MetaMask to use this DApp");
+    }
+  };
+
   return (
     <div style={{ padding: '40px', maxWidth: '800px', margin: 'auto', fontFamily: 'Arial' }}>
       <h1>Decentralized Weather Oracle</h1>
@@ -116,7 +129,9 @@ function App() {
             <p><strong>Balance:</strong> {parseFloat(wallet.balance).toFixed(4)} ETH</p>
           </>
         ) : (
-          <button onClick={() => window.ethereum.request({ method: 'eth_requestAccounts' })}>Connect Wallet</button>
+          <button onClick={connectWallet} style={{ padding: '10px 20px', cursor: 'pointer' }}>
+            Connect Wallet
+          </button>
         )}
       </div>
 
@@ -130,10 +145,14 @@ function App() {
           onChange={(e) => setCity(e.target.value)}
           style={{ padding: '10px', width: '250px', marginRight: '10px' }}
         />
-        <button onClick={handleRequestWeather} disabled={loading || !wallet.address}>
+        <button 
+          onClick={handleRequestWeather} 
+          disabled={loading || !wallet.address}
+          style={{ padding: '10px 20px', cursor: loading || !wallet.address ? 'not-allowed' : 'pointer' }}
+        >
           {loading ? "Processing..." : "Submit Request"}
         </button>
-        <p style={{ color: status.includes("Error") ? "red" : "blue" }}>{status}</p>
+        {status && <p style={{ color: status.includes("Error") ? "red" : "blue", marginTop: '10px' }}>{status}</p>}
       </div>
 
       <hr />
@@ -141,28 +160,32 @@ function App() {
       {/* Historical Data Table from Subgraph */}
       <h3>Historical Weather Reports</h3>
       {queryLoading && <p>Loading historical data...</p>}
-      {queryError && <p>Error loading data from subgraph.</p>}
+      {queryError && <p style={{ color: 'red' }}>Error loading data from subgraph: {queryError.message}</p>}
       
-      <table border="1" cellPadding="10" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-        <thead>
-          <tr style={{ background: '#eee' }}>
-            <th>City</th>
-            <th>Temperature</th>
-            <th>Description</th>
-            <th>Timestamp</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data && data.weatherReports.map((report) => (
-            <tr key={report.id}>
-              <td>{report.city}</td>
-              <td>{(report.temperature / 100).toFixed(2)}°C</td>
-              <td>{report.description}</td>
-              <td>{new Date(report.timestamp * 1000).toLocaleString()}</td>
+      {data && data.weatherReports && data.weatherReports.length > 0 ? (
+        <table border="1" cellPadding="10" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ background: '#eee' }}>
+              <th>City</th>
+              <th>Temperature</th>
+              <th>Description</th>
+              <th>Timestamp</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.weatherReports.map((report) => (
+              <tr key={report.id}>
+                <td>{report.city}</td>
+                <td>{(report.temperature / 100).toFixed(2)}°C</td>
+                <td>{report.description}</td>
+                <td>{new Date(report.timestamp * 1000).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        !queryLoading && <p>No weather reports found yet. Submit a request to get started!</p>
+      )}
     </div>
   );
 }
