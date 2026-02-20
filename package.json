@@ -6,7 +6,8 @@
   "scripts": {
     "test": "hardhat test",
     "compile": "hardhat compile",
-    "deploy": "hardhat run scripts/deploy.js --network sepolia"
+    "deploy": "hardhat run scripts/deploy.js --network sepolia",
+    "request-weather": "hardhat run scripts/request-weather.js --network sepolia"
   },
   "keywords": [],
   "author": "",
@@ -23,7 +24,7 @@
     "@nomiclabs/hardhat-etherscan": "^3.1.8",
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
-    "@types/chai": "^5.2.3",
+    "@types/chai": "^4.3.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.0.10",
     "chai": "^4.5.0",
