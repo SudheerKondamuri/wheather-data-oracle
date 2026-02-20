@@ -8,7 +8,7 @@ contract WeatherOracle is ChainlinkClient, Ownable {
     using Chainlink for Chainlink.Request;
 
     event WeatherRequested(bytes32 indexed requestId, string city, address indexed requester);
-    event WeatherReported(bytes32 indexed requestId, string city, int256 temperature, string description, uint256 timestamp);
+    event WeatherReported(bytes32 indexed requestId, string city, int256 temperature, string description, uint256 timestamp, address indexed requester);
 
     struct WeatherReport {
         string city;
@@ -67,7 +67,7 @@ contract WeatherOracle is ChainlinkClient, Ownable {
             timestamp: block.timestamp
         });
 
-        emit WeatherReported(_requestId, city, temperature, description, block.timestamp);
+        emit WeatherReported(_requestId, city, temperature, description, block.timestamp, requestToRequester[_requestId]);
     }
 
     function setChainlinkOracle(address _oracle) public onlyOwner {
