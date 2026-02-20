@@ -25,7 +25,7 @@ contract WeatherOracle is ChainlinkClient, Ownable {
     uint256 private fee;
     address private oracle;
 
-    constructor(address _link, address _oracle, bytes32 _jobId, uint256 _fee) Ownable(msg.sender) {
+    constructor(address _link, address _oracle, bytes32 _jobId, uint256 _fee) Ownable() {
         _setChainlinkToken(_link);
         _setChainlinkOracle(_oracle);
         oracle = _oracle;
@@ -51,7 +51,7 @@ contract WeatherOracle is ChainlinkClient, Ownable {
     }
 
     // Updated to fulfill core requirement: receive _weatherData as a JSON string
-    function fulfill(bytes32 _requestId, string memory _weatherData) public _recordChainlinkFulfillment(_requestId) {
+    function fulfill(bytes32 _requestId, string memory _weatherData) public recordChainlinkFulfillment(_requestId) {
         string memory city = requestToCity[_requestId];
         
         // Note: Actual string-to-int parsing in Solidity requires a library or 
@@ -77,4 +77,12 @@ contract WeatherOracle is ChainlinkClient, Ownable {
 
     function setJobId(bytes32 _jobId) public onlyOwner { jobId = _jobId; }
     function setFee(uint256 _fee) public onlyOwner { fee = _fee; }
+
+    function withdrawLink() public onlyOwner {
+        LinkTokenInterface link = LinkTokenInterface(_chainlinkTokenAddress());
+        require(link.transfer(msg.sender, link.balanceOf(address(this))), "Unable to transfer LINK");
+    }
+
+    // Fallback function to receive ETH
+    receive() external payable {}
 }
