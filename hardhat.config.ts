@@ -4,6 +4,10 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
+// Only include private key for Sepolia if it's a valid 64-char hex string
+const PRIVATE_KEY = process.env.PRIVATE_KEY || "";
+const isValidKey = /^[a-fA-F0-9]{64}$/.test(PRIVATE_KEY);
+
 const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.26",
@@ -18,9 +22,13 @@ const config: HardhatUserConfig = {
     hardhat: {
       chainId: 1337,
     },
+    localhost: {
+      url: process.env.LOCAL_RPC_URL || "http://127.0.0.1:8545",
+      chainId: 31337,
+    },
     sepolia: {
       url: process.env.RPC_URL || "",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      accounts: isValidKey ? [PRIVATE_KEY] : [],
       chainId: 11155111,
     },
   },
@@ -29,6 +37,10 @@ const config: HardhatUserConfig = {
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts",
+  },
+  gasReporter: {
+    enabled: true,
+    currency: "USD",
   },
   mocha: {
     timeout: 40000,
