@@ -1,43 +1,77 @@
-# Decentralized Weather Oracle & Subgraph
+# Decentralized Weather Oracle & Historical Data Subgraph
 
-A robust, decentralized weather data oracle built with Chainlink Any API, indexed with The Graph Protocol, and featuring a React frontend.
+A robust, decentralized weather data oracle built with **Chainlink Any API**, indexed with **The Graph Protocol**, and featuring a **React** frontend. Fetches real-world weather data on-chain and exposes historical reports through GraphQL queries.
 
 ## Architecture
 
-- **Smart Contract (`WeatherOracle.sol`)**: Handles weather data requests via Chainlink Any API and emits events
+```
+  ┌─────────────┐     Chainlink       ┌──────────────────┐     Events      ┌────────────────┐
+  │  Weather API │ ──────────────────▶ │  WeatherOracle   │ ─────────────▶ │  The Graph     │
+  │  (Off-chain) │   External Adapter  │  (Smart Contract)│                │  (Subgraph)    │
+  └─────────────┘                     └──────────────────┘                └────────────────┘
+                                             ▲                                    │
+                                             │ Web3 Tx                   GraphQL  │
+                                             │                                    ▼
+                                      ┌──────────────────┐              ┌────────────────┐
+                                      │   MetaMask       │              │  React         │
+                                      │   (Wallet)       │◀────────────▶│  Frontend      │
+                                      └──────────────────┘              └────────────────┘
+```
+
+- **Smart Contract (`WeatherOracle.sol`)**: Handles weather data requests via Chainlink Any API, parses pipe-delimited response data, and emits events for indexing
 - **Subgraph**: Indexes `WeatherReported` events for efficient historical querying using The Graph
 - **Frontend**: React application with MetaMask integration for requesting and displaying weather data
-- **Docker Environment**: Complete local development environment with Anvil (EVM node)
+- **Docker Environment**: Complete local development environment with Anvil, Graph Node, IPFS, and PostgreSQL
+
+> For deeper technical details, see [ARCHITECTURE.md](./ARCHITECTURE.md) and [SECURITY.md](./SECURITY.md).
 
 ## Prerequisites
 
 - Node.js v18+ and npm
+- Docker & Docker Compose (for local environment)
 - MetaMask or another Web3 wallet
-- An Infura/Alchemy API key for Sepolia testnet
-- LINK tokens on Sepolia (get from [Chainlink Faucet](https://faucets.chain.link/sepolia))
-- The Graph account (for subgraph deployment)
+- An Alchemy/Infura API key for Sepolia testnet
+- LINK tokens on Sepolia ([Chainlink Faucet](https://faucets.chain.link/sepolia))
+- The Graph Studio account (for subgraph deployment)
+- OpenWeatherMap API key ([free sign-up](https://openweathermap.org/appid))
 
 ## Project Structure
 
 ```
 .
-├── contracts/              # Smart contracts
-│   ├── WeatherOracle.sol  # Main oracle contract
-│   └── mocks/             # Mock contracts for testing
-├── scripts/               # Deployment scripts
-├── test/                  # Contract tests
-├── subgraph/              # The Graph subgraph
-│   ├── schema.graphql     # GraphQL schema
-│   ├── subgraph.yaml      # Subgraph manifest
-│   └── src/mappings/      # Event handlers
-├── frontend/              # React frontend
+├── contracts/                       # Solidity smart contracts
+│   ├── WeatherOracle.sol           # Main oracle contract with Chainlink integration
+│   └── mocks/
+│       └── MockLinkToken.sol       # Mock LINK token for testing
+├── scripts/                        # Deployment and interaction scripts
+│   ├── deploy.js                   # Deploy to Sepolia testnet
+│   ├── deploy-local.js             # Deploy to local Anvil node
+│   ├── request-weather.js          # Interact with deployed contract
+│   └── setup-local.sh              # Automated local setup (Docker)
+├── test/                           # Smart contract tests
+│   └── WeatherOracle.test.js       # 30 comprehensive test cases
+├── subgraph/                       # The Graph subgraph project
+│   ├── schema.graphql              # GraphQL entity definitions
+│   ├── subgraph.yaml               # Subgraph manifest (data sources, event handlers)
+│   └── src/mappings/
+│       └── weather-oracle.ts       # Event mapping logic (idempotent)
+├── frontend/                       # React frontend application
 │   ├── src/
+│   │   ├── App.js                  # Main app with wallet connection
+│   │   └── components/
+│   │       ├── WeatherForm.js      # Weather request form with tx status
+│   │       └── WeatherReportsList.js  # Historical data table from subgraph
 │   ├── public/
 │   └── Dockerfile
-└── docker-compose.yml     # Local dev environment
+├── .env.example                    # Template for all environment variables
+├── docker-compose.yml              # Complete local dev environment
+├── ARCHITECTURE.md                 # Detailed design decisions
+├── SECURITY.md                     # Self-audit security report
+├── hardhat.config.ts               # Hardhat configuration with gas reporter
+└── README.md                       # This file
 ```
 
-## Setup Instructions
+## Quick Start
 
 ### 1. Clone and Install Dependencies
 
@@ -49,180 +83,164 @@ npm install --legacy-peer-deps
 
 ### 2. Configure Environment Variables
 
-Create a `.env` file from the example:
-
 ```bash
 cp .env.example .env
 ```
 
 Edit `.env` with your values:
 
-```env
-# Network RPCs
-RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY
+| Variable | Description |
+|----------|-------------|
+| `RPC_URL` | Sepolia RPC endpoint (Alchemy/Infura) |
+| `PRIVATE_KEY` | Deployer wallet private key (64-char hex, never commit!) |
+| `LINK_TOKEN_ADDRESS` | LINK token address on your network |
+| `ORACLE_ADDRESS` | Chainlink oracle address |
+| `JOB_ID` | Chainlink job specification ID |
+| `FEE` | LINK fee per request (in wei) |
+| `OPENWEATHER_API_KEY` | OpenWeatherMap API key (for External Adapter) |
+| `REACT_APP_CONTRACT_ADDRESS` | Deployed contract address (update after deploy) |
+| `REACT_APP_SUBGRAPH_URI` | Subgraph GraphQL endpoint (update after deploy) |
 
-# Deployment (DO NOT commit your private key!)
-PRIVATE_KEY=your_wallet_private_key
+### 3. Compile & Test Smart Contracts
 
-# Chainlink Configuration (Sepolia)
-LINK_TOKEN_ADDRESS=0x779877A7B0D9E8603169DdbD7836e478b4624789
-ORACLE_ADDRESS=0x6090149791d654a61848D98596A87443Fae41992
-JOB_ID=ca98366cc3314ed5af205319349ad077
-FEE=100000000000000000
-
-# OpenWeatherMap API
-OPENWEATHER_API_KEY=your_openweathermap_api_key
-
-# The Graph
-GRAPH_ACCESS_TOKEN=your_graph_access_token
-SUBGRAPH_NAME=your_username/weather-oracle
-
-# Frontend (update after deployment)
-REACT_APP_CONTRACT_ADDRESS=<deployed_contract_address>
-REACT_APP_SUBGRAPH_URI=<your_subgraph_endpoint>
-```
-
-### 3. Deploy Smart Contracts
-
-**Compile contracts:**
 ```bash
+# Compile contracts
 npm run compile
-```
 
-**Run tests:**
-```bash
+# Run the full test suite (30 tests)
 npm test
 ```
 
-**Deploy to Sepolia:**
+Expected output: `30 passing` with gas usage report.
+
+### 4. Deploy Smart Contracts
+
+**To Sepolia testnet:**
 ```bash
 npm run deploy
 ```
 
-**Important:** After deployment:
-1. Note the deployed contract address
-2. Fund the contract with LINK tokens: Visit [Chainlink Faucet](https://faucets.chain.link/sepolia)
-3. Update your `.env` file with the contract address
+**To local Anvil (for development):**
+```bash
+npm run deploy-local
+```
 
-### 4. Deploy Subgraph
+After deployment:
+1. Note the deployed contract address from the output
+2. Fund the contract with LINK tokens: [Chainlink Faucet](https://faucets.chain.link/sepolia)
+3. Update `.env` with the new contract address
 
-**Navigate to subgraph directory:**
+### 5. Deploy Subgraph
+
 ```bash
 cd subgraph
 npm install
 ```
 
 **Update `subgraph.yaml`:**
-- Replace `address` with your deployed contract address
-- Replace `startBlock` with your deployment block number
+- Set `address` to your deployed contract address
+- Set `startBlock` to your deployment block number
 
-**Authenticate with The Graph:**
+**Deploy to The Graph Studio:**
 ```bash
-npx graph auth --product hosted-service <YOUR_ACCESS_TOKEN>
-```
+# Authenticate
+npx graph auth --studio <YOUR_DEPLOY_KEY>
 
-**Deploy to The Graph Hosted Service:**
-```bash
+# Generate types and build
 npx graph codegen
 npx graph build
-npx graph deploy --product hosted-service <YOUR_USERNAME>/weather-oracle
-```
 
-Or for The Graph Studio:
-```bash
+# Deploy
 npx graph deploy --studio weather-oracle
 ```
 
-**Note your subgraph endpoint** and update `.env` with it.
+Note your subgraph's GraphQL endpoint and update `.env` with it.
 
-### 5. Run Frontend
+### 6. Run Frontend
 
-**Navigate to frontend directory:**
 ```bash
-cd ../frontend
+cd frontend
 npm install
-```
-
-**Configure frontend environment:**
-```bash
-cp .env.example .env
-```
-
-Edit `frontend/.env` with your values:
-```env
-REACT_APP_CONTRACT_ADDRESS=<your_deployed_contract_address>
-REACT_APP_SUBGRAPH_URI=<your_subgraph_graphql_endpoint>
-```
-
-**Start the frontend:**
-```bash
 npm start
 ```
 
-The app will open at `http://localhost:3000`
+The app opens at `http://localhost:3000`. Connect MetaMask to the target network.
 
-### 6. Using Docker (Optional)
+### 7. One-Command Docker Setup (Alternative)
 
-Run the complete local development environment:
+For a complete local development environment:
 
 ```bash
-# From project root
 docker-compose up --build
 ```
 
 This starts:
 - **Anvil**: Local Ethereum node on port 8545
-- **Frontend**: React app on port 3000
-
-For local deployment, update your `.env` to use `http://localhost:8545` as RPC_URL.
+- **PostgreSQL + IPFS + Graph Node**: Local subgraph infrastructure
+- **Setup**: Automated contract deployment + subgraph creation
+- **Frontend**: React dev server on port 3000
 
 ## Testing
 
-### Unit Tests
+### Unit Tests (30 test cases)
 
 ```bash
 npm test
 ```
 
-Tests cover:
-- `requestWeather` function (LINK balance check, event emission)
-- `fulfill` callback (data parsing, storage, event emission)
-- Access control (owner-only functions)
+| Category | Tests | Description |
+|----------|-------|-------------|
+| Deployment | 3 | Constructor validation, zero-address rejection |
+| requestWeather | 5 | LINK check, empty city, events, multiple requests |
+| fulfill (Parsing) | 8 | Pipe parsing, negative temps, empty data, edge cases |
+| Access Control | 8 | Owner-only restrictions for all admin functions |
+| LINK Withdrawal | 2 | Successful withdrawal, empty balance revert |
+| ETH Handling | 1 | Receive function |
+
+### Gas Report
+
+The gas reporter runs automatically with tests:
+
+| Function | Avg Gas | Notes |
+|----------|---------|-------|
+| `requestWeather` | ~129,000 | Includes LINK check + Chainlink request |
+| `fulfill` | ~121,000 | Includes data parsing + storage + event |
+| `withdrawLink` | ~37,000 | LINK transfer to owner |
+| `setJobId` / `setFee` | ~29,000 | Simple storage updates |
 
 ### Manual Testing
 
-1. **Connect MetaMask** to Sepolia testnet
-2. **Request weather data** via frontend
-3. **Wait for Chainlink oracle** to fulfill the request (~1-2 minutes)
-4. **View historical data** from the subgraph
+1. Connect MetaMask to Sepolia testnet
+2. Request weather data via the frontend form
+3. Wait for Chainlink oracle to fulfill (~1-2 minutes)
+4. View historical data from the subgraph in the reports table
 
-## Features
+## Smart Contract: Key Design Decisions
 
-✅ **Chainlink Any API Integration**: Fetches real-world weather data on-chain  
-✅ **Payable Request Function**: Covers Chainlink fees  
-✅ **Event-Driven Architecture**: Emits `WeatherRequested` and `WeatherReported` events  
-✅ **Subgraph Indexing**: Efficient historical data queries via GraphQL  
-✅ **React Frontend**: MetaMask integration, balance display, transaction feedback  
-✅ **Access Control**: Owner-only configuration updates  
-✅ **Comprehensive Tests**: Ethers v6 compatible test suite  
-✅ **Docker Support**: One-command local environment setup  
-✅ **Environment Configuration**: Secure `.env` based configuration
+### Data Parsing Strategy
+The `fulfill()` function receives weather data as a **pipe-delimited string** (e.g., `"2050|clear sky"`) from the Chainlink External Adapter. The contract's `_parseWeatherData()` function:
+- Splits on the `|` delimiter
+- Parses the left side as a signed integer (Celsius × 100)
+- Extracts the right side as the description string
+- Handles edge cases: empty data, missing delimiter, negative temperatures, empty description
 
-## API Reference
+### Why Not On-Chain JSON Parsing?
+On-chain JSON parsing in Solidity is extremely gas-intensive and complex. The pipe-delimited format is:
+- ~10x cheaper in gas costs
+- Simpler to implement and audit
+- Just as reliable when the External Adapter controls the format
 
-### Smart Contract
+### Chainlink External Adapter
+The weather API key is **NOT** stored in the smart contract. It's configured in the Chainlink External Adapter, which:
+1. Receives the city parameter from the Chainlink request
+2. Calls the weather API (e.g., OpenWeatherMap) with the API key
+3. Parses the JSON response
+4. Returns the pipe-delimited format to the oracle contract
 
-**`requestWeather(string memory _city) public payable`**
-- Requests weather data for a city
-- Emits `WeatherRequested(bytes32 requestId, string city, address requester)`
-
-**`fulfill(bytes32 _requestId, string memory _weatherData) public`**
-- Chainlink callback function
-- Emits `WeatherReported(bytes32 requestId, string city, int256 temperature, string description, uint256 timestamp)`
-
-### GraphQL Queries
+## GraphQL Query Examples
 
 ```graphql
+# Get all reports (most recent first)
 query GetWeatherReports {
   weatherReports(orderBy: timestamp, orderDirection: desc) {
     id
@@ -233,9 +251,8 @@ query GetWeatherReports {
     requester
   }
 }
-```
 
-```graphql
+# Filter by city
 query GetReportsByCity($city: String!) {
   weatherReports(where: { city: $city }) {
     id
@@ -246,64 +263,37 @@ query GetReportsByCity($city: String!) {
 }
 ```
 
+## Security
+
+See [SECURITY.md](./SECURITY.md) for the complete self-audit report.
+
+Key highlights:
+- ✅ Access control via OpenZeppelin `Ownable`
+- ✅ Chainlink `recordChainlinkFulfillment` for oracle authentication
+- ✅ Input validation on all public functions
+- ✅ No API keys or secrets in contract code
+- ✅ Gas-efficient design with optimizer (200 runs)
+- ⚠️ Single oracle trust model (recommended: upgrade to DON for production)
+
 ## Troubleshooting
 
-**Contract deployment fails:**
-- Ensure you have enough ETH on Sepolia
-- Check that your `.env` file is properly configured
-- Verify your private key is correct (without 0x prefix)
+| Issue | Solution |
+|-------|----------|
+| Compile error with PRIVATE_KEY | Ensure `.env` has a valid 64-char hex key, or leave as placeholder (config handles it gracefully) |
+| Insufficient LINK | Fund contract via [Chainlink Faucet](https://faucets.chain.link/sepolia) |
+| Chainlink request not fulfilled | Verify oracle address, job ID, and that LINK is available |
+| Frontend not connecting | Check MetaMask is on the correct network, verify contract address in `.env` |
+| Subgraph not updating | Confirm contract address and startBlock in `subgraph.yaml` |
+| Docker setup fails | Ensure Docker daemon is running, check port availability (8545, 3000, 8000) |
 
-**Chainlink request not fulfilled:**
-- Ensure contract has sufficient LINK tokens
-- Check Chainlink oracle is operational
-- Verify job ID is correct for your network
+## Resources
 
-**Frontend not connecting:**
-- Make sure MetaMask is on Sepolia testnet
-- Check contract address in frontend `.env`
-- Verify subgraph is deployed and accessible
-
-**Subgraph not updating:**
-- Confirm contract address and start block are correct in `subgraph.yaml`
-- Check subgraph deployment logs for errors
-- Verify events are being emitted from contract
-
-## Security Considerations
-
-⚠️ **Never commit `.env` file or private keys to version control**  
-⚠️ **Use hardware wallets for mainnet deployments**  
-⚠️ **Audit smart contracts before mainnet deployment**  
-⚠️ **Implement rate limiting for production**  
-
-## Gas Optimization
-
-The contract uses:
-- Solidity optimizer (200 runs)
-- Minimal storage operations
-- Efficient event emission
-
-## Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new features
-4. Submit a pull request
+- [Chainlink Any API Documentation](https://docs.chain.link/any-api/introduction)
+- [The Graph Documentation](https://thegraph.com/docs/)
+- [Hardhat Documentation](https://hardhat.org/docs)
+- [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/)
+- [Ethers.js v6 Documentation](https://docs.ethers.org/v6/)
 
 ## License
 
 ISC
-
-## Resources
-
-- [Chainlink Documentation](https://docs.chain.link/)
-- [The Graph Documentation](https://thegraph.com/docs/)
-- [Hardhat Documentation](https://hardhat.org/docs)
-- [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/)
-
-## Support
-
-For issues and questions:
-- Open an issue on GitHub
-- Check existing issues for solutions
-- Review Chainlink and The Graph documentation
