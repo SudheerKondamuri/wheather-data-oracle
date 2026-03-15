@@ -9,3 +9,6 @@ dist/
 build/
 *.log
 .DS_Store
+gasReporterOutput.jsonsubgraph/generated/
+subgraph/subgraph-local.yaml
+subgraph/node_modules/

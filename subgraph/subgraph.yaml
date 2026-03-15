@@ -19,6 +19,6 @@ dataSources:
         - name: WeatherOracle
           file: ../artifacts/contracts/WeatherOracle.sol/WeatherOracle.json
       eventHandlers:
-        - event: WeatherReported(indexed bytes32,string,int256,string,uint256)
+        - event: WeatherReported(indexed bytes32,string,int256,string,uint256,indexed address)
           handler: handleWeatherReported
       file: ./src/mappings/weather-oracle.ts
